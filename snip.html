@@ -1,0 +1,246 @@
+
+<html>
+	<head>
+		<title>MoxySnip - Storage-Free WYSIWYG Editor</title>
+		<style>
+			#scratchPad{
+				width: 50%;
+				height: calc(100% - 40px);
+				float: left;
+				margin: 0 5px 5px;
+				tab-size: 3;
+				min-height: calc(100% - 40px);
+			}
+			#preview{
+				float: left;
+				position: relative;
+				width: calc(50% - 12px);
+				height: calc(100% - 40px);
+				margin-bottom: 5px;
+			}
+			#preview textarea{
+				resize: none;
+				position: absolute;
+				width: 100%;
+				height: calc(100%);
+				word-wrap: break-word;
+				word-break: break-all;
+			}
+			#preview iframe{
+				padding: 2px;
+				position: absolute;
+				width: calc(100% - 8px);
+				height: calc(100%);
+				overflow-x: hidden;
+				z-index: 1;
+				border: 0;
+			}
+			#bar {
+				font-family: Verdana;
+				font-size: 11px;
+				width: 100%;
+			}
+			#previewBtn {
+				margin-bottom: 5px;
+			}
+			#password{
+				display: none;	
+			}
+		</style>
+	</head>
+	<body>
+		<!--- This is a Moxy creation. This code contains no dependencies and can be pretty much copied and pasted into a separate HTML file for use for the paranoid. Although you will need to change the URL in the JS near the bottom of the page for it to work correctly! --->
+		<div id="bar">
+			<label for="liveEdit"><input type="checkbox" id="liveEdit" checked /><span>Live Edit</span></label>
+			<label for="isSandboxed"><input type="checkbox" id="isSandboxed" checked /><span>Restrict JS</span></label>
+			&nbsp; &nbsp;
+			<button id="previewBtn">Preview</button>
+			<label for="copy"><a href="#" id="shareUrl">Copy URL to Clipboard</a></label>
+			<label for="encodeWithPass"><input type="checkbox" id="encodeWithPass" /><span>XOR with Password</span> &nbsp; <input type="text" id="password" value="" /></label>
+		</div>
+
+<textarea spellcheck="false" id="scratchPad" onkeydown="insertTab(this, event);">
+<style>
+	body { font-family: Verdana; }
+	#test{ color: red }
+</style>
+
+<script>
+	const helloWorld = () => alert('Hello world!')
+</script>
+<img src="https://www.moxyphp.com/css_box_model.png">
+
+<div id="test" onclick="helloWorld();">Hello world!</div>
+
+<p>
+	Snippets created here are not stored in a database in any shape or form. The link itself (obtained via clicking "Copy URL to Clipboard" stores the code in Base64. If you lose the link, the code is not possible to recover!
+</p>
+</textarea>
+
+
+		<div id="preview">
+		<textarea spellcheck="false"></textarea>
+		<iframe id="content" srcdoc="" sandbox></iframe>
+		</div>
+
+
+		<script>
+			const iframe = document.getElementById('content')
+			const previewArea = document.querySelector('#preview textarea')
+			const scratchPad = document.getElementById('scratchPad')
+			if (window.location.href.indexOf('snip?c=') > -1){
+				let code = window.location.href.split('snip?c=')
+				if (code.length === 2){
+					scratchPad.value = atob(code[1])
+				}
+			} else if (window.location.href.indexOf('snip?cv=') > -1){
+				let code = window.location.href.split('snip?cv=')
+				if (code.length === 2){
+					const encodedSnippet = atob(code[1])
+					const password = prompt('A password is required for viewing this snippet. Please enter it.')
+					if (password) {
+						let tmp = []
+						let pos = 0
+						for (let i = 0; i < encodedSnippet.length; i++){ 
+							const code = encodedSnippet.charCodeAt(i) ^ password.charCodeAt(pos)
+							tmp.push(String.fromCharCode(code))
+							pos = i % password.length
+						}
+						scratchPad.value = tmp.join('')
+					} else {
+						scratchPad.value = ''
+					}
+				}
+			} 
+			document.getElementById('isSandboxed').onclick = (e) => {
+				if (e.target.checked) {
+					document.getElementById('content').setAttribute('sandbox', '')
+				} else {
+					document.getElementById('content').removeAttribute('sandbox')
+				}
+				refreshPreview()
+			}
+			document.getElementById('liveEdit').onclick = (e) => {
+				if (e.target.checked) {
+					scratchPad.onkeyup = (e) => refreshPreview()
+				} else {
+					scratchPad.onkeyup = (e) => {}
+				}
+				refreshPreview()
+			}
+			document.getElementById('encodeWithPass').onclick = (e) => {
+				if (e.target.checked) {
+					document.getElementById('password').style.display = 'inline-block'
+				} else {
+					document.getElementById('password').style.display = 'none'
+				}
+				refreshPreview()
+			}
+			document.getElementById('previewBtn').onclick = (e) => refreshPreview()
+			const copyToClipboard = str => {
+			  const el = document.createElement('textarea');
+			  el.value = str;
+			  el.setAttribute('readonly', '');
+			  el.style.position = 'absolute';
+			  el.style.left = '-9999px';
+			  document.body.appendChild(el);
+			  el.select();
+			  document.execCommand('copy');
+			  document.body.removeChild(el);
+			};
+			document.getElementById('shareUrl').onclick = (e) => {
+				e.preventDefault()
+				let value = scratchPad.value	
+				const password = document.getElementById('password').value
+				if (document.getElementById('encodeWithPass').checked && password.length) {
+					let tmp = []
+					let pos = 0
+					for (let i = 0; i < value.length; i++){ 
+						const code = value.charCodeAt(i) ^ password.charCodeAt(pos)
+						tmp.push(String.fromCharCode(code))
+						pos = i % password.length
+					}
+					value = tmp.join('')
+					tmp = null
+					copyToClipboard('https://www.moxyphp.com/snip?cv=' + btoa(value))
+				} else {
+					copyToClipboard('https://www.moxyphp.com/snip?c=' + btoa(value))
+				}
+				window.onbeforeunload = {}
+				isSet = false
+				value = ''
+				document.execCommand('copy');
+			}
+			function insertTab(o, e)
+			{		
+				var kC = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
+				if (kC == 9 && !e.shiftKey && !e.ctrlKey && !e.altKey)
+				{
+					var oS = o.scrollTop;
+					if (o.setSelectionRange)
+					{
+						var sS = o.selectionStart;	
+						var sE = o.selectionEnd;
+						o.value = o.value.substring(0, sS) + "\t" + o.value.substr(sE);
+						o.setSelectionRange(sS + 1, sS + 1);
+						o.focus();
+					}
+					else if (o.createTextRange)
+					{
+						document.selection.createRange().text = "\t";
+						e.returnValue = false;
+					}
+					o.scrollTop = oS;
+					if (e.preventDefault)
+					{
+						e.preventDefault();
+					}
+					return false;
+				}
+				return true;
+			}
+			scratchPad.onmousemove = () => {
+				let x = getComputedStyle(scratchPad, null)
+				const width = x.width.replace('px', '')
+				const height = x.height.replace('px', '')
+				const bWidth = document.body.clientWidth
+				const bHeight = document.body.clientHeight
+				if (width > bWidth / 2) {
+					scratchPad.style.minHeight = '100px'
+					previewArea.style.minHeight = '100px'
+					previewArea.style.minWidth = '100%'
+					scratchPad.style.maxWidth = '100%'
+					document.getElementById('preview').style.clear = 'both'
+					previewArea.style.width = `${bWidth - 10 + 'px'}`
+				} else {
+					scratchPad.style.minHeight = 'calc(100% - 40px)'
+					previewArea.style.minHeight = 'calc(100%)'
+					scratchPad.style.minWidth = '100px'
+					previewArea.style.minWidth = '100px'
+					document.getElementById('preview').style.clear = 'none'
+					previewArea.style.width = `${bWidth - width - 20 + 'px'}`
+				}
+			}
+			let isSet = false
+			scratchPad.onkeyup = (e) => {
+				if (!isSet) {
+					isSet = true
+					function myConfirmation() {
+						return 'Are you sure you want to quit?';
+					}
+					window.onbeforeunload = myConfirmation;
+				}
+				refreshPreview()
+			}
+			previewArea.onfocus = () => previewArea.blur()
+
+			const refreshPreview = () => {
+				var style = getComputedStyle(previewArea, null)
+				let html = scratchPad.value
+				iframe.srcdoc = `<style>body{word-wrap: break-word; overflow-x: hidden; width: ${parseInt(style.width.replace('px', '') - 10) + 'px'};}</style>` + "<script>parent = null;</script" + '>' + html
+			}
+			refreshPreview()
+		</script>
+	</body>
+	<!--- Copyright (c) Daniel Moxon @ https://www.moxyscript.com - All rights reserved --->
+</html>
